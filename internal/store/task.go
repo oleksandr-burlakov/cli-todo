@@ -13,7 +13,7 @@ func CreateTask(db *sql.DB, workspaceID int64, projectID *int64, title, descript
 	}
 	res, err := db.Exec(
 		`INSERT INTO tasks (workspace_id, project_id, title, description, status, priority, due_date) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		workspaceID, projectID, title, description, status, priority, nullTime(dueDate),
+		workspaceID, projectID, title, description, status, nullPriority(priority), nullTime(dueDate),
 	)
 	if err != nil {
 		return models.Task{}, err
@@ -80,7 +80,7 @@ func ListAllTasksInWorkspace(db *sql.DB, workspaceID int64) ([]models.Task, erro
 func UpdateTask(db *sql.DB, id int64, title, description, status, priority string, dueDate *time.Time) (models.Task, error) {
 	_, err := db.Exec(
 		`UPDATE tasks SET title = ?, description = ?, status = ?, priority = ?, due_date = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-		title, description, status, priority, nullTime(dueDate), id,
+		title, description, status, nullPriority(priority), nullTime(dueDate), id,
 	)
 	if err != nil {
 		return models.Task{}, err
@@ -98,6 +98,18 @@ func nullTime(t *time.Time) interface{} {
 		return nil
 	}
 	return *t
+}
+
+// nullPriority returns nil for empty/invalid priority so SQL stores NULL (CHECK allows only 'low'|'medium'|'high'|NULL).
+func nullPriority(priority string) interface{} {
+	if priority == "" {
+		return nil
+	}
+	switch priority {
+	case "low", "medium", "high":
+		return priority
+	}
+	return nil
 }
 
 func scanTasks(rows *sql.Rows) ([]models.Task, error) {

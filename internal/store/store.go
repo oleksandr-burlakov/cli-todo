@@ -9,17 +9,21 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// DBPath returns the default path for the SQLite database (cross-platform).
+// DBPath returns the default path for the SQLite database.
+// Uses "todo.db" next to the executable so the file is in a predictable place
+// whether you run from a terminal (cd folder; ./todo) or by double-clicking the exe.
 func DBPath() (string, error) {
-	dir, err := os.UserConfigDir()
+	exe, err := os.Executable()
 	if err != nil {
-		return "", fmt.Errorf("config dir: %w", err)
+		// Fallback to current directory if we can't get executable path
+		dir, err2 := os.Getwd()
+		if err2 != nil {
+			return "", fmt.Errorf("executable: %w", err)
+		}
+		return filepath.Join(dir, "todo.db"), nil
 	}
-	appDir := filepath.Join(dir, "cli-todo")
-	if err := os.MkdirAll(appDir, 0700); err != nil {
-		return "", fmt.Errorf("mkdir: %w", err)
-	}
-	return filepath.Join(appDir, "todo.db"), nil
+	dir := filepath.Dir(exe)
+	return filepath.Join(dir, "todo.db"), nil
 }
 
 // Open opens the SQLite database and runs migrations.

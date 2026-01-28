@@ -19,6 +19,7 @@ var workspaceCreateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		w, err := store.CreateWorkspace(db, args[0])
 		if err != nil {
+			fmt.Printf("Error %s", err.Error())
 			return err
 		}
 		fmt.Printf("Created workspace %q (id %d)\n", w.Name, w.ID)
@@ -61,7 +62,6 @@ var workspaceDeleteCmd = &cobra.Command{
 		return nil
 	},
 }
-
 
 func init() {
 	rootCmd.AddCommand(workspaceCmd)

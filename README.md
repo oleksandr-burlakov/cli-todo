@@ -54,13 +54,9 @@ GOOS=windows GOARCH=amd64 go build -o todo.exe .
 
 ## Data location
 
-By default the SQLite database is stored at:
+By default the SQLite database is **`todo.db` in the current working directory** (the folder from which you run the app). So if you run `./todo` from your project folder, the file appears there.
 
-- **Linux**: `~/.config/cli-todo/todo.db`
-- **macOS**: `~/Library/Application Support/cli-todo/todo.db`
-- **Windows**: `%AppData%\cli-todo\todo.db`
-
-Override with `--db /path/to/todo.db`.
+Override with `--db /path/to/todo.db` when using the CLI.
 
 ## Usage
 
