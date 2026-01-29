@@ -50,3 +50,5 @@ go.work
 # Ignore all local history of files
 .history
 .ionide
+todo.db
+todo.exe
