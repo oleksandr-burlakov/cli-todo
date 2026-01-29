@@ -15,6 +15,12 @@ func Migrate(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(string(sqlBytes))
-	return err
+	if _, err := db.Exec(string(sqlBytes)); err != nil {
+		return err
+	}
+	// Add workspace color column for DBs created before this field existed.
+	_, _ = db.Exec("ALTER TABLE workspaces ADD COLUMN color TEXT")
+	// Add project color column for DBs created before this field existed.
+	_, _ = db.Exec("ALTER TABLE projects ADD COLUMN color TEXT")
+	return nil
 }

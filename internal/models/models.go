@@ -5,6 +5,7 @@ import "time"
 type Workspace struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`
+	Color     string    `json:"color,omitempty"` // e.g. "green", "blue", "#ff0000"
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -12,6 +13,7 @@ type Project struct {
 	ID          int64     `json:"id"`
 	WorkspaceID int64     `json:"workspace_id"`
 	Name        string    `json:"name"`
+	Color       string    `json:"color,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 

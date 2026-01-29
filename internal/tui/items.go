@@ -15,6 +15,7 @@ type projectItem struct {
 	ID          *int64
 	Name        string
 	IsDefault   bool
+	Color       string
 }
 
 func (p projectItem) Title() string       { return p.Name }
@@ -26,7 +27,18 @@ type taskItem struct {
 }
 
 func (t taskItem) Title() string {
-	s := "[" + t.Task.Status + "]"
+	var statusSym string
+	switch t.Task.Status {
+	case "todo":
+		statusSym = "[]"
+	case "in_progress":
+		statusSym = "[in_progress]"
+	case "done":
+		statusSym = "[x]"
+	default:
+		statusSym = "[" + t.Task.Status + "]"
+	}
+	s := statusSym
 	if t.Task.Priority != "" {
 		s += " " + t.Task.Priority + " "
 	}

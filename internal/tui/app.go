@@ -7,8 +7,10 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/cli-todo/internal/models"
 	"github.com/cli-todo/internal/store"
+	"github.com/muesli/termenv"
 )
 
 type screen int
@@ -26,6 +28,15 @@ const (
 	inputNewWorkspace
 	inputNewProject
 	inputNewTask
+	inputNewTaskDue
+	inputNewTaskPriority
+	inputNewTaskStatus
+	inputEditWorkspace
+	inputEditProject
+	inputEditTask
+	inputTaskDueDate
+	inputWorkspaceColor
+	inputProjectColor
 )
 
 type model struct {
@@ -45,6 +56,15 @@ type model struct {
 	input             textinput.Model
 	err               string
 	statusMsg         string
+	editWorkspaceID   int64 // 0 = not editing
+	editProjectID     int64
+	editTaskID        int64
+	moveTaskID        int64 // when non-zero, selecting project to move task to
+	// Draft for multi-step new task (title required; due, priority, status optional)
+	newTaskTitle    string
+	newTaskDue      string
+	newTaskPriority string
+	newTaskStatus   string
 }
 
 func New(db *sql.DB) *model {
@@ -97,8 +117,33 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if k == "enter" {
 			return m.handleSelect()
 		}
+		if k == "e" {
+			return m.handleEdit()
+		}
+		if m.screen == screenTasks {
+			if k == "s" {
+				return m.handleTaskCycleStatus()
+			}
+			if k == "p" {
+				return m.handleTaskCyclePriority()
+			}
+			if k == "u" {
+				return m.handleTaskSetDueDate()
+			}
+			if k == "m" {
+				return m.handleMoveTask()
+			}
+		}
 		if m.screen == screenWorkspaces {
+			if k == "c" {
+				return m.handleWorkspaceColor()
+			}
 			return m.updateWorkspaceNav(k)
+		}
+		if m.screen == screenProjects {
+			if k == "c" {
+				return m.handleProjectColor()
+			}
 		}
 	}
 	var cmd tea.Cmd
@@ -114,18 +159,77 @@ func (m *model) updateInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 		k := msg.String()
 		if k == "enter" || k == "ctrl+j" || k == "ctrl+m" {
 			val := strings.TrimSpace(m.input.Value())
-			m.input.SetValue("")
-			mode := m.inputMode // save before clearing
-			m.inputMode = inputNone
-			if val == "" {
+			mode := m.inputMode
+
+			// Multi-step new task: quick create (Enter on title) or advance / create from form
+			switch mode {
+			case inputNewTask:
+				if val == "" {
+					return m, nil
+				}
+				m.input.SetValue("")
+				m.inputMode = inputNone
+				next, cmd := m.handleInputSubmit(val, inputNewTask)
+				return next, cmd
+			case inputNewTaskDue:
+				m.newTaskDue = val
+				m.input.SetValue("")
+				m.input.Placeholder = "Priority: low / medium / high (optional)"
+				m.inputMode = inputNewTaskPriority
+				return m, textinput.Blink
+			case inputNewTaskPriority:
+				m.newTaskPriority = val
+				m.input.SetValue("")
+				m.input.Placeholder = "Status: todo / in_progress / done (optional)"
+				m.inputMode = inputNewTaskStatus
+				return m, textinput.Blink
+			case inputNewTaskStatus:
+				return m.createTaskFromDraft(val)
+			}
+
+			// Single-step submit for all other modes
+			if val == "" && mode != inputTaskDueDate && mode != inputWorkspaceColor && mode != inputProjectColor {
 				return m, nil
 			}
+			m.input.SetValue("")
+			m.inputMode = inputNone
 			next, cmd := m.handleInputSubmit(val, mode)
 			return next, cmd
+		}
+		if k == "tab" {
+			mode := m.inputMode
+			switch mode {
+			case inputNewTask:
+				val := strings.TrimSpace(m.input.Value())
+				if val == "" {
+					return m, nil
+				}
+				m.newTaskTitle = val
+				m.input.SetValue("")
+				m.input.Placeholder = "Due date (YYYY-MM-DD, optional)"
+				m.inputMode = inputNewTaskDue
+				return m, textinput.Blink
+			case inputNewTaskDue:
+				m.newTaskDue = strings.TrimSpace(m.input.Value())
+				m.input.SetValue("")
+				m.input.Placeholder = "Priority: low / medium / high (optional)"
+				m.inputMode = inputNewTaskPriority
+				return m, textinput.Blink
+			case inputNewTaskPriority:
+				m.newTaskPriority = strings.TrimSpace(m.input.Value())
+				m.input.SetValue("")
+				m.input.Placeholder = "Status: todo / in_progress / done (optional)"
+				m.inputMode = inputNewTaskStatus
+				return m, textinput.Blink
+			case inputNewTaskStatus:
+				return m.createTaskFromDraft(strings.TrimSpace(m.input.Value()))
+			}
 		}
 		if k == "esc" || k == "ctrl+c" {
 			m.inputMode = inputNone
 			m.input.SetValue("")
+			m.clearNewTaskDraft()
+			m.input.Placeholder = "Name..."
 			return m, nil
 		}
 	}
@@ -164,6 +268,8 @@ func (m *model) View() string {
 
 // Run starts the TUI program.
 func Run(db *sql.DB) error {
+	// Force color output so workspace/project colors render in the terminal.
+	lipgloss.SetColorProfile(termenv.TrueColor)
 	p := tea.NewProgram(New(db), tea.WithAltScreen())
 	_, err := p.Run()
 	return err

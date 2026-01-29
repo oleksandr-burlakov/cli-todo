@@ -88,6 +88,18 @@ func UpdateTask(db *sql.DB, id int64, title, description, status, priority strin
 	return GetTask(db, id)
 }
 
+// SetTaskProject sets the project (list) for a task. projectID nil = default list.
+func SetTaskProject(db *sql.DB, taskID int64, projectID *int64) (models.Task, error) {
+	_, err := db.Exec(
+		`UPDATE tasks SET project_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		projectID, taskID,
+	)
+	if err != nil {
+		return models.Task{}, err
+	}
+	return GetTask(db, taskID)
+}
+
 func DeleteTask(db *sql.DB, id int64) error {
 	_, err := db.Exec("DELETE FROM tasks WHERE id = ?", id)
 	return err

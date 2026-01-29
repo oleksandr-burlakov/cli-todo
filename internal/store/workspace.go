@@ -17,20 +17,34 @@ func CreateWorkspace(db *sql.DB, name string) (models.Workspace, error) {
 
 func GetWorkspace(db *sql.DB, id int64) (models.Workspace, error) {
 	var w models.Workspace
-	err := db.QueryRow("SELECT id, name, created_at FROM workspaces WHERE id = ?", id).
-		Scan(&w.ID, &w.Name, &w.CreatedAt)
-	return w, err
+	var color sql.NullString
+	err := db.QueryRow("SELECT id, name, color, created_at FROM workspaces WHERE id = ?", id).
+		Scan(&w.ID, &w.Name, &color, &w.CreatedAt)
+	if err != nil {
+		return models.Workspace{}, err
+	}
+	if color.Valid {
+		w.Color = color.String
+	}
+	return w, nil
 }
 
 func GetWorkspaceByName(db *sql.DB, name string) (models.Workspace, error) {
 	var w models.Workspace
-	err := db.QueryRow("SELECT id, name, created_at FROM workspaces WHERE name = ?", name).
-		Scan(&w.ID, &w.Name, &w.CreatedAt)
-	return w, err
+	var color sql.NullString
+	err := db.QueryRow("SELECT id, name, color, created_at FROM workspaces WHERE name = ?", name).
+		Scan(&w.ID, &w.Name, &color, &w.CreatedAt)
+	if err != nil {
+		return models.Workspace{}, err
+	}
+	if color.Valid {
+		w.Color = color.String
+	}
+	return w, nil
 }
 
 func ListWorkspaces(db *sql.DB) ([]models.Workspace, error) {
-	rows, err := db.Query("SELECT id, name, created_at FROM workspaces ORDER BY name")
+	rows, err := db.Query("SELECT id, name, color, created_at FROM workspaces ORDER BY name")
 	if err != nil {
 		return nil, err
 	}
@@ -38,12 +52,36 @@ func ListWorkspaces(db *sql.DB) ([]models.Workspace, error) {
 	var list []models.Workspace
 	for rows.Next() {
 		var w models.Workspace
-		if err := rows.Scan(&w.ID, &w.Name, &w.CreatedAt); err != nil {
+		var color sql.NullString
+		if err := rows.Scan(&w.ID, &w.Name, &color, &w.CreatedAt); err != nil {
 			return nil, err
+		}
+		if color.Valid {
+			w.Color = color.String
 		}
 		list = append(list, w)
 	}
 	return list, rows.Err()
+}
+
+func UpdateWorkspace(db *sql.DB, id int64, name string) (models.Workspace, error) {
+	_, err := db.Exec("UPDATE workspaces SET name = ? WHERE id = ?", name, id)
+	if err != nil {
+		return models.Workspace{}, err
+	}
+	return GetWorkspace(db, id)
+}
+
+func SetWorkspaceColor(db *sql.DB, id int64, color string) (models.Workspace, error) {
+	var val interface{} = nil
+	if color != "" {
+		val = color
+	}
+	_, err := db.Exec("UPDATE workspaces SET color = ? WHERE id = ?", val, id)
+	if err != nil {
+		return models.Workspace{}, err
+	}
+	return GetWorkspace(db, id)
 }
 
 func DeleteWorkspace(db *sql.DB, id int64) error {
